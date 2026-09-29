@@ -21,10 +21,10 @@ i{font-style:normal;font-weight:800}i.X{color:var(--x)}i.O{color:var(--o)}
 #turn{min-height:26px;font-size:18px;font-weight:700;color:#b8dde9;text-align:center}
 #stage{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
 #bd{display:grid;grid-template-columns:repeat(3,1fr)}
-.cell{background:var(--cell);border:none;border-radius:16%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 5px 0 #0b1a22;padding:0}
+.cell{position:relative;min-width:0;min-height:0;width:100%;height:100%;overflow:visible;background:var(--cell);border:none;border-radius:16%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 5px 0 #0b1a22;padding:0}
 .cell:active{transform:translateY(3px);box-shadow:0 2px 0 #0b1a22}
 .cell.X,.cell.O{cursor:default}
-.cell svg{width:72%;height:72%;fill:none;stroke-width:11;stroke-linecap:round}
+.cell svg{position:absolute;left:14%;top:14%;width:72%;height:72%;fill:none;stroke-width:11;stroke-linecap:round}
 .cell.X svg{stroke:var(--x);filter:drop-shadow(0 0 6px var(--x))}
 .cell.O svg{stroke:var(--o);filter:drop-shadow(0 0 6px var(--o))}
 .cell svg *{stroke-dasharray:1;stroke-dashoffset:1;animation:dr .32s ease-out forwards}
@@ -115,7 +115,7 @@ function pick(){
 function fit(){const st=$('stage'),aw=st.clientWidth,ah=st.clientHeight,s=Math.floor(Math.min(aw,ah));
  bd.style.width=bd.style.height=s+'px';bd.style.gap=Math.max(4,s/(n*15))+'px';
  document.documentElement.style.setProperty('--w',Math.max(s,Math.min(aw,300))+'px')}
-function build(){bd.style.gridTemplateColumns='repeat('+n+',1fr)';bd.innerHTML='';for(let i=0;i<n*n;i++){const c=document.createElement('button');c.className='cell';c.setAttribute('aria-label','Cell '+(i+1));bd.appendChild(c)}}
+function build(){bd.style.gridTemplateColumns=bd.style.gridTemplateRows='repeat('+n+',minmax(0,1fr))';bd.innerHTML='';for(let i=0;i<n*n;i++){const c=document.createElement('button');c.className='cell';c.setAttribute('aria-label','Cell '+(i+1));bd.appendChild(c)}}
 function ui(msg){const N=names();
  $('p1').innerHTML='<i class="X">✕</i> '+N.X+'<b>'+sc.X+'</b>';$('p2').innerHTML='<i class="O">◯</i> '+N.O+'<b>'+sc.O+'</b>';$('pd').innerHTML='Draw<b>'+sc.D+'</b>';
  $('p1').classList.toggle('act',active&&turn=='X');$('p2').classList.toggle('act',active&&turn=='O');
@@ -172,4 +172,3 @@ fit();build();b=Array(n*n).fill('');ui();menu();
 </script>
 </body>
 </html>
-
