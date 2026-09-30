@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1c66cf">
+<title>Wandering Worlds — an endless cartoon planet</title>
+<style>
+:root{--panel:rgba(20,22,38,.9);--line:rgba(255,255,255,.16);--text:#eef0f8;--mute:#a7adc4;--acc:#ffd166;--bg2:rgba(255,255,255,.07)}
+@media (prefers-color-scheme:light){:root{--panel:rgba(255,255,255,.93);--line:rgba(0,0,0,.14);--text:#1c1e2b;--mute:#5d6379;--acc:#c77900;--bg2:rgba(0,0,0,.05)}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;background:#1c66cf;font:14px/1.4 "Trebuchet MS",Verdana,sans-serif;color:var(--text);-webkit-tap-highlight-color:transparent}
+#cv{position:fixed;left:0;top:0;width:100%;height:100%;touch-action:none;cursor:grab;display:block}
+#cv:active{cursor:grabbing}
+button,select,input[type=text]{font:inherit;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:#241800;border-color:var(--acc);font-weight:700}
+button.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset}
+:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+#tog{position:fixed;right:12px;top:12px;z-index:6;background:var(--panel);backdrop-filter:blur(8px)}
+#panel{position:fixed;right:12px;top:54px;width:300px;max-height:calc(100% - 70px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;backdrop-filter:blur(10px);z-index:5}
+#panel[hidden]{display:none}
+h2{font-size:17px;margin:0}
+p.s{margin:2px 0 8px;color:var(--mute);font-size:12px}
+details{border-top:1px solid var(--line);padding:6px 0}
+summary{cursor:pointer;font-weight:700;padding:4px 0}
+label.r{display:block;margin:7px 0;color:var(--mute);font-size:12px}
+label.r b{color:var(--text);float:right;font-weight:600}
+input[type=range]{width:100%;accent-color:var(--acc);margin:3px 0 0}
+.c{display:flex;align-items:center;gap:8px;margin:7px 0;color:var(--text)}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.row>*{flex:1}
+select{width:100%}
+#seed{flex:2;min-width:0;cursor:text}
+#stamps{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+#stamps button{padding:2px 6px;font-size:20px;flex:none}
+#mini{position:fixed;left:12px;bottom:12px;width:132px;height:132px;border-radius:50%;border:3px solid rgba(255,255,255,.85);box-shadow:0 4px 14px rgba(0,0,0,.4);background:rgba(0,0,0,.25);pointer-events:none}
+#pill{position:fixed;left:12px;top:12px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:6px 12px;font-size:13px;backdrop-filter:blur(8px)}
+#hud{position:fixed;left:12px;bottom:158px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7);font-size:13px;max-width:60vw;transition:opacity 2s;pointer-events:none}
+#toast{position:fixed;left:50%;top:70px;transform:translate(-50%,-20px);background:var(--panel);border:1px solid var(--acc);border-radius:22px;padding:8px 18px;font-size:15px;opacity:0;transition:.35s;z-index:8;pointer-events:none;backdrop-filter:blur(8px);white-space:nowrap}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#exitPhoto{display:none;position:fixed;right:12px;top:12px;opacity:.35;z-index:7}
+#exitPhoto:hover{opacity:1}
+.photo .ui{display:none!important}
+.photo #exitPhoto{display:block}
+#help{position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:9}
+#help[hidden]{display:none}
+#help div{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 22px;max-width:460px;width:90%}
+#help kbd{background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:0 6px}
+#help p{margin:6px 0}
+#err{position:fixed;left:10px;right:10px;bottom:10px;background:#3b0d0d;color:#ffd4d4;border:1px solid #ff6b6b;border-radius:10px;padding:10px 14px;z-index:20;font-size:13px}
+#err[hidden]{display:none}
+@media (max-width:640px){#panel{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:52vh}#mini{width:96px;height:96px}#hud{bottom:118px}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<canvas id="mini" class="ui" width="132" height="132"></canvas>
+<div id="pill" class="ui">🧭 0 tiles · ✨ 0 found</div>
+<div id="hud" class="ui"><b>Wandering Worlds</b> · drag to steer · tap for confetti · find the glowing landmarks ✨</div>
+<div id="toast"></div>
+<button id="tog" class="ui" aria-expanded="true">⚙ Controls</button>
+<button id="exitPhoto" title="Leave photo mode (Esc)">✕</button>
+<div id="panel" class="ui"></div>
+<div id="help" hidden><div>
+  <h2>How to play</h2>
+  <p><b>Drag</b> to steer · <b>tap</b> for confetti · <b>scroll</b> or pinch-slider to zoom.</p>
+  <p>Tap glowing <b>landmarks</b> ✨ to discover them. Tap <b>animals</b> to make them jump.</p>
+  <p>Switch to <b>Stamp</b> mode to build your own village on the land.</p>
+  <p><kbd>Arrows</kbd>/<kbd>WASD</kbd> move · <kbd>1</kbd>–<kbd>6</kbd> worlds · <kbd>N</kbd> new world · <kbd>S</kbd> stamp/explore · <kbd>Z</kbd> undo stamp · <kbd>M</kbd> minimap · <kbd>P</kbd> photo mode · <kbd>H</kbd> hide panel · <kbd>Esc</kbd> close</p>
+  <p><button class="pri" id="helpClose">Got it</button></p>
+</div></div>
+<div id="err" hidden></div>
+<noscript><p style="position:fixed;top:40%;width:100%;text-align:center;color:#fff">Wandering Worlds needs JavaScript.</p></noscript>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+function showErr(m){const e=$("err");e.hidden=false;e.textContent="Something went wrong: "+m;}
+window.addEventListener("error",ev=>showErr(ev.message+" (line "+ev.lineno+")"));
+window.addEventListener("unhandledrejection",ev=>showErr(String(ev.reason)));
+
+// ---------------------------------------------------------------- worlds
+const THEMES={
+ isles:{name:"Sunny Isles",pal:["#1c66cf","#46bde8","#f6e3a1","#83dd5b","#3c9f4c","#f4f8fc"],line:"#17402f",wx:"clear",
+  objs:{2:["🌴","🌴","🐚","⛱️","🦀"],3:["🌳","🌳","🌷","🏡","🌻","🌼"],4:["🌲","🌲","🌲","🌲","⛺","🍄"],5:["🏔️","⛰️","🚩","🌋"]},
+  fly:["🕊️","🦋","🦜"],sea:["⛵","🐳","🐬","🦈","🐙","🚤"],walk:["🐑","🐄","🦌","🐇","🐕","🦆"],pop:["🎈","⭐","🌈","🎉","🍀"],rare:["🗽","🏰","🐉","🗿","⛲"],petal:["🍃"]},
+ candy:{name:"Candy Land",pal:["#ff86c8","#ffb8e0","#fff0c2","#a5f0cc","#c9a4ff","#ffffff"],line:"#7b3a86",wx:"petals",
+  objs:{2:["🍬","🧁","🍭"],3:["🍩","🍰","🍦","🍓","🎂"],4:["🍄","🍡","🎄","🍒"],5:["🍨","🎪","🏰"]},
+  fly:["🦄","🦋","🕊️"],sea:["🐙","🦑","🐡","🐠","🐬"],walk:["🐰","🐻","🐱","🐹","🐷"],pop:["🍭","🍬","💖","✨","🍩"],rare:["🎡","🏰","🦄","🎪"],petal:["🍬","🍭","🍡"]},
+ alien:{name:"Alien Moon",pal:["#150b36","#3b1f86","#ffb36b","#37e6a0","#0fae8a","#fff2a8"],line:"#0a0522",wx:"dust",
+  objs:{2:["💎","🔮","🌑"],3:["👽","🍄","🛸","🌵"],4:["🌵","🍄","🧿","🔮"],5:["🌋","🗿","🪐"]},
+  fly:["🛸","☄️","🦇"],sea:["👾","🐙","🦑","🐋"],walk:["👽","🦎","🐌","🦂"],pop:["✨","💫","🪐","⭐","🌟"],rare:["🛸","👾","🗿","🌌"],petal:["✨"]},
+ arctic:{name:"Frozen North",pal:["#0d3b66","#3f9fd0","#e6f6ff","#cfe9f5","#8fc3d6","#ffffff"],line:"#28506e",wx:"snow",
+  objs:{2:["🧊","🐧","⛄"],3:["🌲","❄️","⛄","🦭"],4:["🌲","🌲","🎄","🛷"],5:["🏔️","🏔️","🗻","⛰️"]},
+  fly:["🦉","🕊️","🦅"],sea:["🐋","🐧","🦭","🚢"],walk:["🐧","🐻‍❄️","🦊","🐇","🦌"],pop:["❄️","⛄","✨","💙","🧊"],rare:["🐻‍❄️","⛄","🗻","🛷"],petal:["❄️"]},
+ desert:{name:"Golden Desert",pal:["#127c8c","#3fc1c9","#f7d58b","#e9b45a","#c9803a","#8a4f2b"],line:"#4a2a16",wx:"dust",
+  objs:{2:["🐚","🌵","🦎"],3:["🌵","🐪","🌴","🏜️"],4:["🏺","🌵","⛺","🐍"],5:["🗿","🕌","🏛️","⛰️"]},
+  fly:["🦅","🦋","🦉"],sea:["🛶","🐊","🐟","🦩"],walk:["🐪","🦎","🦂","🐫"],pop:["🌵","☀️","✨","🏺","⭐"],rare:["🕌","🏛️","🐫","🗿"],petal:["🍂"]},
+ sakura:{name:"Sakura Isles",pal:["#2b4a8f","#5aa9e6","#ffe9d6","#ffb7c5","#7cc576","#ffffff"],line:"#5a2d4b",wx:"petals",
+  objs:{2:["🎏","🐚","🦆"],3:["🌸","🌸","🌸","🏮","⛩️"],4:["🌳","🎋","🏯","🌸"],5:["🗻","🗻","🏔️","🏯"]},
+  fly:["🦋","🕊️","🎐"],sea:["⛵","🐟","🦆","🐢"],walk:["🐼","🦊","🐇","🦌","🐈"],pop:["🌸","🎊","🏮","🍡","✨"],rare:["⛩️","🏯","🎎","🗻"],petal:["🌸"]}
+};
+const TKEYS=Object.keys(THEMES);
+const hex=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16));
+for(const k of TKEYS){const t=THEMES[k];t.rgb=t.pal.map(hex);t.lrgb=hex(t.line);}
+const WORDS=[["sunny","misty","wobbly","cosmic","jolly","sleepy","fuzzy","golden","bouncy","zesty"],["otter","comet","pickle","dragon","muffin","pixel","llama","waffle","panda","rocket"]];
+const randSeed=()=>WORDS[0][Math.random()*10|0]+"-"+WORDS[1][Math.random()*10|0]+"-"+(Math.random()*90+10|0);
+const strHash=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0};
+
+const cfg={theme:"isles",seedStr:randSeed(),sp:70,z:1,dn:1,wl:1,cl:.3,tm:.5,cyc:true,auto:true,wx:"auto",wi:.6,sea:0,sc:1,ro:.45,mini:true,tool:"move",stamp:"🏠"};
+(function readHash(){try{const m=/[#&]w=([^&]*)/.exec(location.hash);if(!m)return;const p=decodeURIComponent(m[1]).split("~");
+  if(THEMES[p[0]])cfg.theme=p[0]; if(p[1])cfg.seedStr=p[1]; if(p[2]!==undefined&&!isNaN(+p[2]))cfg.sea=+p[2]; if(p[3]&&!isNaN(+p[3]))cfg.sc=+p[3]; if(p[4]&&!isNaN(+p[4]))cfg.ro=+p[4];}catch(e){}})();
+
+// ---------------------------------------------------------------- constants & state
+const VS=64, CN=10, NV=CN+1, CW=VS*CN, WARP=.16;
+const cv=$("cv"), ctx=cv.getContext("2d"), mini=$("mini"), mctx=mini.getContext("2d");
+let TH, seed, VW, VH, dpr=1;
+const chunks=new Map(), GV=new Map();
+let found=new Set(), stamps=[], ents=[], pops=[], clouds=[], flies=[], wparts=[];
+let cam={x:400,y:400}, vel={x:0,y:0}, heading=Math.random()*6.28, dist=0, lastInput=-99, drag=false, paused=false;
+let pat1=null, pat2=null, flash=0, nextFlash=5, frameNo=0;
+const keys={};
+const key=(a,b)=>a+","+b, vk=(gx,gy)=>gx*4194304+gy, clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function hash(a,b,c){let h=(a*374761393+b*668265263+c*2147483647)|0;h=Math.imul(h^h>>>13,1274126177);return(h^h>>>16)>>>0}
+const mulberry=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+
+// ---------------------------------------------------------------- Wave Function Collapse (terrain)
+// Every vertex gets a height level 0..5. Rule: neighbouring vertices differ by at most 1.
+const LW=[.7,1.2,.8,1.7,1.4,.6];
+const target=(gx,gy)=>{gx*=cfg.sc;gy*=cfg.sc;
+  return 2.9-cfg.sea*1.4+1.7*Math.sin(gx*.11+seed%7)*Math.cos(gy*.09+seed%5)+1.2*Math.sin(gx*.05+gy*.07+seed%11)+.7*Math.sin(gx*.23-gy*.19)};
+const pc=m=>(m&1)+(m>>1&1)+(m>>2&1)+(m>>3&1)+(m>>4&1)+(m>>5&1);
+const NBS=Array.from({length:NV*NV},(_,c)=>{const x=c%NV,y=c/NV|0,r=[];if(x>0)r.push(c-1);if(x<CN)r.push(c+1);if(y>0)r.push(c-NV);if(y<CN)r.push(c+NV);return r});
+function prop(d,q){while(q.length){const c=q.pop(),m=d[c],a=(m|m<<1|m>>1)&63;for(const n of NBS[c]){const nm=d[n]&a;if(nm!==d[n]){if(!nm)return false;d[n]=nm;q.push(n)}}}return true}
+function solve(fixed,rng,cx,cy){
+  let dom=new Uint8Array(NV*NV).fill(63); for(const f of fixed) dom[f[0]]=1<<f[1];
+  const all=[]; for(let i=0;i<dom.length;i++) all.push(i);
+  if(!prop(dom,all)) return null;
+  const st=[], kT=1-cfg.ro*.7, kC=1.4-cfg.ro*1.2; let bt=0, ok=true;
+  for(;;){
+    if(!ok){ let fx=false;
+      while(st.length){ if(++bt>400) return null; const s=st.pop(); dom=s.dom; dom[s.c]&=~(1<<s.v); if(dom[s.c]&&prop(dom,[s.c])){fx=true;break} }
+      if(!fx) return null; ok=true; continue; }
+    let best=-1,be=9;
+    for(let c=0;c<dom.length;c++){const n=pc(dom[c]); if(n>1){const e=n+rng()*.6; if(e<be){be=e;best=c}}}
+    if(best<0) return dom;
+    const tg=target(cx*CN+best%NV,cy*CN+(best/NV|0));
+    let avg=0,an=0; for(const n of NBS[best]) if(pc(dom[n])===1){avg+=31-Math.clz32(dom[n]);an++}
+    const ws=[]; let tot=0;
+    for(let v=0;v<6;v++){ if(!(dom[best]>>v&1)){ws.push(0);continue} let w=LW[v]*Math.exp(-kT*Math.abs(v-tg)); if(an) w*=Math.exp(-kC*Math.abs(v-avg/an)); ws.push(w); tot+=w; }
+    let r=rng()*tot,pick=0; for(let v=0;v<6;v++){ if(!ws[v]) continue; pick=v; r-=ws[v]; if(r<=0) break; }
+    st.push({dom:dom.slice(),c:best,v:pick}); dom[best]=1<<pick; ok=prop(dom,[best]);
+  }
+}
+function genChunk(cx,cy){
+  const rng=mulberry(hash(seed,cx,cy)), fixed=[];
+  for(let j=0;j<NV;j++)for(let i=0;i<NV;i++){const g=GV.get(vk(cx*CN+i,cy*CN+j)); if(g!==undefined) fixed.push([j*NV+i,g]);}
+  let dom=null; for(let a=0;a<4&&!dom;a++) dom=solve(fixed,rng,cx,cy);
+  if(!dom) dom=solve([],rng,cx,cy); if(!dom) dom=new Uint8Array(NV*NV).fill(8);
+  const V=new Uint8Array(NV*NV);
+  for(let j=0;j<NV;j++)for(let i=0;i<NV;i++){const k=vk(cx*CN+i,cy*CN+j), g=GV.get(k); V[j*NV+i]=g!==undefined?g:31-Math.clz32(dom[j*NV+i]); if(g===undefined) GV.set(k,V[j*NV+i]);}
+  return {cx,cy,V,wc:null,lc:null,objs:null,born:0};
+}
+// smooth height field (used for rendering, placement and animal movement)
+function HF(V,x,y,wx,wy){
+  const fx=x/VS,fy=y/VS; let i=fx|0,j=fy|0; if(i>=CN)i=CN-1; if(j>=CN)j=CN-1;
+  let tx=fx-i,ty=fy-j; tx=tx*tx*(3-2*tx); ty=ty*ty*(3-2*ty);
+  const a=V[j*NV+i],b=V[j*NV+i+1],c=V[(j+1)*NV+i],d=V[(j+1)*NV+i+1];
+  return (a+(b-a)*tx)*(1-ty)+(c+(d-c)*tx)*ty+WARP*(Math.sin(wx*.045+wy*.03)+Math.sin(wx*.021-wy*.05));
+}
+function hAt(x,y){const cx=Math.floor(x/CW),cy=Math.floor(y/CW),ch=chunks.get(key(cx,cy)); return ch?HF(ch.V,x-cx*CW,y-cy*CW,x,y):null}
+
+// ---------------------------------------------------------------- cartoon chunk rendering
+const pack=(r,g,b,a)=>((a<<24)|(b<<16)|(g<<8)|r)>>>0;
+function renderChunk(ch,now){
+  const S=CW, wc=document.createElement("canvas"), lc=document.createElement("canvas"); wc.width=wc.height=lc.width=lc.height=S;
+  const wg=wc.getContext("2d"), lg=lc.getContext("2d"), wi=wg.createImageData(S,S), li=lg.createImageData(S,S);
+  const wb=new Uint32Array(wi.data.buffer), lb=new Uint32Array(li.data.buffer), P=TH.rgb, L=TH.lrgb, V=ch.V, ox=ch.cx*CW, oy=ch.cy*CW;
+  const ix=new Uint8Array(S),jy=new Uint8Array(S),tx=new Float32Array(S),ty=new Float32Array(S),S1x=new Float32Array(S),C1x=new Float32Array(S),S2x=new Float32Array(S),C2x=new Float32Array(S),S1y=new Float32Array(S),C1y=new Float32Array(S),S2y=new Float32Array(S),C2y=new Float32Array(S);
+  for(let p=0;p<S;p++){ const fx=(p+.5)/VS; let i=fx|0; if(i>=CN)i=CN-1; const t=fx-i; ix[p]=i; jy[p]=i; tx[p]=ty[p]=t*t*(3-2*t);
+    const wx=ox+p+.5, wy=oy+p+.5; S1x[p]=Math.sin(wx*.045);C1x[p]=Math.cos(wx*.045);S2x[p]=Math.sin(wx*.021);C2x[p]=Math.cos(wx*.021);
+    S1y[p]=Math.sin(wy*.03);C1y[p]=Math.cos(wy*.03);S2y[p]=Math.sin(wy*.05);C2y[p]=Math.cos(wy*.05); }
+  const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+  const wcol=[0,.3,.6,.88].map(t=>{const c=mixc(P[0],P[1],t);return pack(c[0]|0,c[1]|0,c[2]|0,255)});
+  for(let py=0;py<S;py++){ const row0=jy[py]*NV,row1=row0+NV,tyy=ty[py],c1y=C1y[py],s1y=S1y[py],c2y=C2y[py],s2y=S2y[py];
+    for(let px=0;px<S;px++){
+      const i=ix[px],t=tx[px],a=V[row0+i],b=V[row0+i+1],c=V[row1+i],d=V[row1+i+1];
+      const h=(a+(b-a)*t)*(1-tyy)+(c+(d-c)*t)*tyy+WARP*(S1x[px]*c1y+C1x[px]*s1y+S2x[px]*c2y-C2x[px]*s2y), o=py*S+px;
+      const tt=clamp((h-.4)/1,0,1); wb[o]=wcol[Math.min(3,(tt*4)|0)];
+      if(h<1.36){ lb[o]=0; }
+      else if(h<1.5){ lb[o]=pack(255,255,255,(clamp((h-1.36)/.025,0,1)*245)|0); }
+      else { const k=Math.min(5,Math.floor(h+.5)), f=h+.5-k, sh=.88+.22*f, n=((px*7+py*13^px*py)&7)-3; const q=P[k];
+        let r=q[0]*sh+n, g=q[1]*sh+n, bl=q[2]*sh+n, m=0;
+        if(h<1.56) m=1-(h-1.5)/.06; else if(k>=3&&f<.05) m=.6*(1-f/.05);
+        if(m>0){ r+=(L[0]-r)*m; g+=(L[1]-g)*m; bl+=(L[2]-bl)*m; }
+        lb[o]=pack(clamp(r,0,255)|0,clamp(g,0,255)|0,clamp(bl,0,255)|0,255); }
+    } }
+  wg.putImageData(wi,0,0); lg.putImageData(li,0,0); ch.wc=wc; ch.lc=lc; ch.born=now; makeObjs(ch);
+}
+const PROB={2:.16,3:.3,4:.6,5:.22}, SIZE={2:44,3:58,4:66,5:74};
+function makeObjs(ch){
+  const rng=mulberry(hash(seed,ch.cx,ch.cy)^777), objs=[], V=ch.V;
+  for(let j=0;j<CN;j++)for(let i=0;i<CN;i++){
+    const k=Math.round((V[j*NV+i]+V[j*NV+i+1]+V[(j+1)*NV+i]+V[(j+1)*NV+i+1])/4), list=TH.objs[k];
+    if(!list||rng()>=PROB[k]*cfg.dn) continue;
+    const x=(i+.15+.7*rng())*VS,y=(j+.15+.7*rng())*VS,h=HF(V,x,y,ch.cx*CW+x,ch.cy*CW+y); if(h<1.9||Math.round(h)!==k) continue;
+    let clash=false; for(const o of objs) if(Math.abs(o.lx-x)<34&&Math.abs(o.ly-y)<26){clash=true;break} if(clash) continue;
+    objs.push({x:ch.cx*CW+x,y:ch.cy*CW+y,lx:x,ly:y,e:list[rng()*list.length|0],s:SIZE[k]*(.85+.3*rng()),ph:rng()*6.28});
+  }
+  const r2=mulberry(hash(seed,ch.cx,ch.cy)^999);
+  if(r2()<.34) for(let t=0;t<6;t++){ const x=(1+r2()*(CN-2))*VS,y=(1+r2()*(CN-2))*VS,h=HF(V,x,y,ch.cx*CW+x,ch.cy*CW+y);
+    if(h>2.3&&h<4.3){ objs.push({x:ch.cx*CW+x,y:ch.cy*CW+y,lx:x,ly:y,e:TH.rare[r2()*TH.rare.length|0],s:98,ph:r2()*6.28,rare:true,id:ch.cx+","+ch.cy}); break; } }
+  ch.objs=objs;
+}
+const SPR=new Map();
+function spr(e){let s=SPR.get(e); if(!s){s=document.createElement("canvas"); s.width=s.height=110; const g=s.getContext("2d"); g.font='84px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign="center"; g.textBaseline="middle"; g.fillText(e,55,60); SPR.set(e,s)} return s}
+function waterPat(size,sd,alpha){
+  const c=document.createElement("canvas"); c.width=c.height=size; const g=c.getContext("2d"), r=mulberry(sd); g.lineWidth=3; g.lineCap="round"; g.strokeStyle="rgba(255,255,255,"+alpha+")";
+  for(let n=0;n<size/16;n++){const x=r()*size,y=r()*size; for(const ox of[-size,0,size])for(const oy of[-size,0,size]){g.beginPath();g.moveTo(x+ox,y+oy);g.quadraticCurveTo(x+ox+14,y+oy-9,x+ox+28,y+oy);g.quadraticCurveTo(x+ox+42,y+oy+9,x+ox+56,y+oy);g.stroke()}}
+  return ctx.createPattern(c,"repeat");
+}
+
+// ---------------------------------------------------------------- world management
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("show"),2600)}
+function syncHash(){try{history.replaceState(null,"","#w="+encodeURIComponent([cfg.theme,cfg.seedStr,cfg.sea,cfg.sc,cfg.ro].join("~")))}catch(e){}}
+function setTheme(name){cfg.theme=name;TH=THEMES[name];document.body.style.background=TH.pal[0];
+  for(const ch of chunks.values()){ch.wc=ch.lc=ch.objs=null} ents=[]; wparts=[]; pat1=waterPat(200,3,.42); pat2=waterPat(320,9,.28); buildStamps(); syncHash();
+  if($("theme")) $("theme").value=name;}
+function rebuild(){ seed=strHash(cfg.seedStr); chunks.clear(); GV.clear(); ents=[]; syncHash(); }
+function newWorld(str){ cfg.seedStr=str||randSeed(); found=new Set(); stamps=[]; rebuild(); if($("seed")) $("seed").value=cfg.seedStr; updatePill(); toast("🌍 New world: "+cfg.seedStr); }
+function initSky(){
+  clouds=Array.from({length:12},()=>({x:Math.random(),y:Math.random(),s:.8+Math.random()*1.2,v:8+Math.random()*14}));
+  flies=Array.from({length:70},()=>({x:Math.random(),y:Math.random(),p:Math.random()*6.28,v:.3+Math.random()*.7}));
+}
+function resize(){ dpr=Math.min(devicePixelRatio||1,2); VW=innerWidth; VH=innerHeight; cv.width=Math.round(VW*dpr); cv.height=Math.round(VH*dpr); }
+function ensureChunks(now,z,budget){
+  const mx=CW*.55, x0=Math.floor((cam.x-VW/2/z-mx)/CW),x1=Math.floor((cam.x+VW/2/z+mx)/CW),y0=Math.floor((cam.y-VH/2/z-mx)/CW),y1=Math.floor((cam.y+VH/2/z+mx)/CW), need=[];
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const ch=chunks.get(key(x,y)); if(!ch||!ch.wc) need.push([x,y,Math.hypot((x+.5)*CW-cam.x,(y+.5)*CW-cam.y)]);}
+  need.sort((a,b)=>a[2]-b[2]);
+  for(const n of need.slice(0,budget)){ let ch=chunks.get(key(n[0],n[1])), fresh=false; if(!ch){ch=genChunk(n[0],n[1]);chunks.set(key(n[0],n[1]),ch);fresh=true} renderChunk(ch,fresh?now:-1e9); }
+  const keep=Math.max(VW,VH)/z/2+CW*1.6;
+  for(const ch of chunks.values()) if(ch.wc&&Math.hypot((ch.cx+.5)*CW-cam.x,(ch.cy+.5)*CW-cam.y)>keep+CW){ch.wc=ch.lc=ch.objs=null}
+}
+
+// ---------------------------------------------------------------- creatures
+const okFor={fly:()=>true,sea:h=>h<1.15,walk:h=>h>2.4&&h<4.4};
+function spawn(k,z){
+  for(let t=0;t<14;t++){ const x=cam.x+(Math.random()-.5)*(VW/z+CW*.6), y=cam.y+(Math.random()-.5)*(VH/z+CW*.6), h=hAt(x,y); if(h===null||!okFor[k](h)) continue;
+    const a=Math.random()*6.28, sp=k==="fly"?60+Math.random()*50:k==="sea"?14+Math.random()*16:6+Math.random()*10, list=TH[k];
+    ents.push({k,x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,e:list[Math.random()*list.length|0],s:k==="fly"?46:k==="sea"?58:42,age:0,turn:1+Math.random()*3,ph:Math.random()*6.28,hop:0}); return; }
+}
+function updateEnts(dt,z){
+  const cnt={fly:0,sea:0,walk:0}; for(const e of ents) cnt[e.k]++;
+  for(const a of [["fly",12],["sea",12],["walk",20]]){ const n=Math.round(a[1]*cfg.wl);
+    if(cnt[a[0]]<n) spawn(a[0],z); else if(cnt[a[0]]>n){ const i=ents.findIndex(e=>e.k===a[0]); if(i>=0) ents.splice(i,1); } }
+  for(let i=ents.length-1;i>=0;i--){ const e=ents[i]; e.age+=dt; e.x+=e.vx*dt; e.y+=e.vy*dt; if(e.hop>0) e.hop=Math.max(0,e.hop-dt*2.2);
+    if(Math.hypot(e.x-cam.x,e.y-cam.y)>Math.max(VW,VH)/z*1.1+CW){ents.splice(i,1);continue}
+    if(e.k!=="fly"){ const h=hAt(e.x,e.y); if(h===null||!okFor[e.k](h)){ e.x-=e.vx*dt*2; e.y-=e.vy*dt*2; const a=Math.random()*6.28,sp=Math.hypot(e.vx,e.vy); e.vx=Math.cos(a)*sp; e.vy=Math.sin(a)*sp; }
+      if((e.turn-=dt)<0){ e.turn=2+Math.random()*4; const a=Math.atan2(e.vy,e.vx)+(Math.random()-.5)*2, sp=Math.hypot(e.vx,e.vy); e.vx=Math.cos(a)*sp; e.vy=Math.sin(a)*sp; } }
+  }
+}
+
+// ---------------------------------------------------------------- weather
+function wxKind(){ return cfg.wx==="auto"?TH.wx:cfg.wx; }
+function drawWeather(kind,dt,t){
+  const amt=cfg.wi; if(kind==="clear"||amt<=0.01){flash=0;return}
+  const n=Math.round((kind==="storm"||kind==="rain"?520:kind==="snow"?260:kind==="dust"?220:70)*amt*Math.min(2,VW*VH/1e6+.4));
+  while(wparts.length<n) wparts.push({x:Math.random()*VW,y:Math.random()*VH,v:Math.random(),r:Math.random()*6.28,e:TH.petal[Math.random()*TH.petal.length|0]});
+  wparts.length=n;
+  if(kind==="rain"||kind==="storm"){ ctx.strokeStyle="rgba(205,225,255,.5)"; ctx.lineWidth=1.3; ctx.beginPath();
+    for(const p of wparts){ p.y+=(760+300*p.v)*dt; p.x-=150*dt; if(p.y>VH){p.y=-20;p.x=Math.random()*(VW+200)} if(p.x<-20)p.x=VW+20; ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+5,p.y-17); } ctx.stroke(); }
+  else if(kind==="snow"){ ctx.fillStyle="rgba(255,255,255,.88)"; ctx.beginPath();
+    for(const p of wparts){ p.y+=(40+60*p.v)*dt; p.x+=Math.sin(t*.9+p.r)*22*dt; if(p.y>VH){p.y=-8;p.x=Math.random()*VW} const r=1.4+p.v*2.4; ctx.moveTo(p.x+r,p.y); ctx.arc(p.x,p.y,r,0,7); } ctx.fill(); }
+  else if(kind==="dust"){ ctx.fillStyle=TH.name==="Alien Moon"?"rgba(190,140,255,.55)":"rgba(240,200,130,.5)"; ctx.beginPath();
+    for(const p of wparts){ p.x+=(140+180*p.v)*dt; p.y+=Math.sin(t+p.r)*10*dt; if(p.x>VW+10){p.x=-10;p.y=Math.random()*VH} ctx.moveTo(p.x+2.2,p.y); ctx.arc(p.x,p.y,1.3+p.v*1.4,0,7); } ctx.fill(); }
+  else { for(const p of wparts){ p.y+=(35+50*p.v)*dt; p.x+=(30+20*Math.sin(t*.8+p.r))*dt; p.r+=dt*(1+p.v); if(p.y>VH+20){p.y=-20;p.x=Math.random()*VW} if(p.x>VW+20)p.x=-20;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.globalAlpha=.9; ctx.drawImage(spr(p.e),-8,-8,16+p.v*6,16+p.v*6); ctx.restore(); } }
+  if(kind==="storm"){ if(t>nextFlash){flash=1;nextFlash=t+3+Math.random()*7} if(flash>0){ ctx.fillStyle="rgba(235,240,255,"+(flash*.6)+")"; ctx.fillRect(0,0,VW,VH); flash-=dt*3.2; } }
+}
+
+// ---------------------------------------------------------------- drawing
+const mix3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t], NIGHT=[80,95,180], DAY=[255,255,255], DUSK=[255,178,122], GREY=[150,165,200];
+function drawOne(o,t){
+  const s=o.s; ctx.save(); ctx.translate(o.x,o.y);
+  let lift=0;
+  if(o.rare&&!found.has(o.id)){ const p=.5+.5*Math.sin(t*3+o.ph), g=ctx.createRadialGradient(0,-s*.4,4,0,-s*.4,s*.95); g.addColorStop(0,"rgba(255,226,120,"+(.55+.25*p)+")"); g.addColorStop(1,"rgba(255,226,120,0)"); ctx.fillStyle=g; ctx.fillRect(-s,-s*1.5,s*2,s*2); }
+  ctx.fillStyle="rgba(0,0,0,.22)"; ctx.beginPath(); ctx.ellipse(0,0,s*.36,s*.13,0,0,7); ctx.fill();
+  if(o.k){ ctx.globalAlpha=clamp(o.age,0,1); if(o.hop>0) lift=Math.sin((1-o.hop)*Math.PI)*38; const bob=Math.sin(t*(o.k==="sea"?2.2:6)+o.ph)*(o.k==="sea"?3:2.5); if(o.vx>0) ctx.scale(-1,1); ctx.drawImage(spr(o.e),-s*.6,-s*1.05+bob-lift,s*1.2,s*1.2); }
+  else { let sc=1; if(o.born!==undefined){ const a=clamp((t-o.born)/.45,0,1); sc=1+2.70158*Math.pow(a-1,3)+1.70158*Math.pow(a-1,2); }
+    ctx.scale(sc,sc); ctx.rotate(Math.sin(t*1.3+o.ph)*.045); ctx.drawImage(spr(o.e),-s*.6,-s*1.08,s*1.2,s*1.2);
+    if(o.rare&&!found.has(o.id)) ctx.drawImage(spr("✨"),-15,-s*1.35-Math.sin(t*3+o.ph)*5,30,30); }
+  ctx.restore();
+}
+function drawMini(){
+  const S=132, half=66, cs=12, ccx=Math.floor(cam.x/CW), ccy=Math.floor(cam.y/CW), cell=cs/CN;
+  mctx.clearRect(0,0,S,S); mctx.fillStyle=TH.pal[0]; mctx.fillRect(0,0,S,S);
+  const pal=TH.pal, rare=[];
+  for(let cy=ccy-6;cy<=ccy+6;cy++)for(let cx=ccx-6;cx<=ccx+6;cx++){ const ch=chunks.get(key(cx,cy)); if(!ch) continue;
+    const bx=half+(cx*CW-cam.x)/CW*cs, by=half+(cy*CW-cam.y)/CW*cs; if(bx>S||by>S||bx<-cs||by<-cs) continue;
+    for(let j=0;j<CN;j++)for(let i=0;i<CN;i++){ const l=ch.V[j*NV+i]; mctx.fillStyle=l<2?pal[l]:pal[l]; mctx.fillRect(bx+i*cell,by+j*cell,cell+.6,cell+.6); }
+    if(ch.objs) for(const o of ch.objs) if(o.rare&&!found.has(o.id)) rare.push([half+(o.x-cam.x)/CW*cs,half+(o.y-cam.y)/CW*cs]); }
+  mctx.fillStyle="#ffd84a"; for(const r of rare){mctx.beginPath();mctx.arc(r[0],r[1],2.6,0,7);mctx.fill()}
+  mctx.fillStyle="#fff"; mctx.strokeStyle="#111"; mctx.lineWidth=1.5; mctx.beginPath(); mctx.arc(half,half,3.6,0,7); mctx.fill(); mctx.stroke();
+}
+function updatePill(){ $("pill").textContent="🧭 "+Math.round(dist/VS)+" tiles · ✨ "+found.size+" found · 🏠 "+stamps.length+" built"; }
+
+let last=0, prevCam={x:cam.x,y:cam.y};
+function frame(ts){
+  try{ draw(ts); }catch(e){ if(!frame.err){frame.err=1;showErr(e.message)} }
+  requestAnimationFrame(frame);
+}
+function draw(ts){
+  const dt=Math.min(.05,(ts-last)/1000||.016); last=ts; const z=cfg.z, t=ts/1000; frameNo++;
+  // camera
+  let kx=(keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0), ky=(keys.ArrowDown||keys.s?1:0)-(keys.ArrowUp||keys.w?1:0);
+  if(kx||ky){ lastInput=t; const n=Math.hypot(kx,ky); vel.x=kx/n*420/z; vel.y=ky/n*420/z; cam.x+=vel.x*dt; cam.y+=vel.y*dt; heading=Math.atan2(vel.y,vel.x); }
+  else if(!drag){ if(cfg.auto&&cfg.sp>0&&t-lastInput>2.5){ heading+=(Math.sin(t*.13)+Math.sin(t*.071+1))*.11*dt; vel.x+=(Math.cos(heading)*cfg.sp-vel.x)*dt*1.5; vel.y+=(Math.sin(heading)*cfg.sp-vel.y)*dt*1.5; }
+    else { vel.x*=Math.pow(.94,dt*60); vel.y*=Math.pow(.94,dt*60); }
+    cam.x+=vel.x*dt; cam.y+=vel.y*dt; }
+  dist+=Math.hypot(cam.x-prevCam.x,cam.y-prevCam.y); prevCam.x=cam.x; prevCam.y=cam.y;
+  ensureChunks(ts,z,chunks.size<9?2:1);
+  if(cfg.cyc){ cfg.tm=(cfg.tm+dt/150)%1; if(frameNo%8===0) setSlider("tm"); }
+  updateEnts(dt,z);
+  const vx0=cam.x-VW/2/z-100,vx1=cam.x+VW/2/z+100,vy0=cam.y-VH/2/z-100,vy1=cam.y+VH/2/z+160;
+  const vis=[]; for(const ch of chunks.values()){ if(!ch.wc) continue; const x=ch.cx*CW,y=ch.cy*CW; if(x>vx1||x+CW<vx0||y>vy1||y+CW<vy0) continue; vis.push(ch); }
+  // 1 water
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle=TH.pal[0]; ctx.fillRect(0,0,VW,VH);
+  ctx.setTransform(dpr*z,0,0,dpr*z,dpr*(VW/2-cam.x*z),dpr*(VH/2-cam.y*z));
+  for(const ch of vis){ const a=clamp((ts-ch.born)/1400,0,1); ctx.globalAlpha=1-Math.pow(1-a,3); ctx.drawImage(ch.wc,ch.cx*CW,ch.cy*CW,CW+1,CW+1); }
+  ctx.globalAlpha=1;
+  // 2 animated waves
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(pat1&&pat1.setTransform&&typeof DOMMatrix!=="undefined"){ const base=new DOMMatrix().translate(VW/2-cam.x*z,VH/2-cam.y*z);
+    pat1.setTransform(base.translate(t*9,t*5).scale(z)); ctx.fillStyle=pat1; ctx.fillRect(0,0,VW,VH);
+    pat2.setTransform(base.translate(-t*6,t*8).scale(z*1.15)); ctx.fillStyle=pat2; ctx.fillRect(0,0,VW,VH); }
+  // 3 land + objects
+  ctx.setTransform(dpr*z,0,0,dpr*z,dpr*(VW/2-cam.x*z),dpr*(VH/2-cam.y*z)); const draw2=[];
+  for(const ch of vis){ const a=clamp((ts-ch.born)/1400,0,1); ctx.globalAlpha=1-Math.pow(1-a,3); ctx.drawImage(ch.lc,ch.cx*CW,ch.cy*CW,CW+1,CW+1);
+    if(ch.objs&&a>.3) for(const o of ch.objs) if(o.x>vx0&&o.x<vx1&&o.y>vy0&&o.y<vy1) draw2.push(o); }
+  ctx.globalAlpha=1;
+  for(const o of stamps) if(o.x>vx0&&o.x<vx1&&o.y>vy0&&o.y<vy1) draw2.push(o);
+  for(const e of ents) if(e.k!=="fly"&&e.x>vx0&&e.x<vx1&&e.y>vy0&&e.y<vy1) draw2.push(e);
+  draw2.sort((a,b)=>a.y-b.y); for(const o of draw2) drawOne(o,t);
+  // 4 sky layers
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cl=clouds.slice(0,Math.round(4*cfg.cl)), wrapX=VW+700, wrapY=VH+700, sx=(x,par)=>((x*wrapX-cam.x*par*z)%wrapX+wrapX)%wrapX-350, sy=(y,par)=>((y*wrapY-cam.y*par*z)%wrapY+wrapY)%wrapY-350;
+  for(const c of clouds){ c.x=(c.x+c.v*dt/wrapX)%1; }
+  for(const c of cl){ ctx.fillStyle="rgba(0,20,60,.13)"; ctx.beginPath(); ctx.ellipse(sx(c.x,1)+60,sy(c.y,1)+90,170*c.s,62*c.s,0,0,7); ctx.fill(); }
+  for(const e of ents) if(e.k==="fly"){ const px=VW/2+(e.x-cam.x)*z, py=VH/2+(e.y-cam.y)*z; if(px<-80||px>VW+80||py<-80||py>VH+80) continue; const s=e.s*z, al=clamp(e.age,0,1), lift=e.hop>0?Math.sin((1-e.hop)*Math.PI)*30:0;
+    ctx.globalAlpha=.18*al; ctx.fillStyle="#000"; ctx.beginPath(); ctx.ellipse(px+30,py+70,s*.3,s*.1,0,0,7); ctx.fill();
+    ctx.globalAlpha=al; ctx.save(); ctx.translate(px,py-40*z+Math.sin(t*5+e.ph)*3-lift); if(e.vx>0) ctx.scale(-1,1); ctx.drawImage(spr(e.e),-s*.6,-s*.6,s*1.2,s*1.2); ctx.restore(); }
+  ctx.globalAlpha=.75; for(const c of cl){ const w=300*c.s*z; ctx.drawImage(spr("☁️"),sx(c.x,1.35)-w/2,sy(c.y,1.35)-w/2,w,w); } ctx.globalAlpha=1;
+  // 5 light, weather, vignette
+  const kind=wxKind(), wet=(kind==="rain"||kind==="storm")?cfg.wi:0;
+  const dl=.5+.5*Math.sin(6.2832*(cfg.tm-.25)), warm=1-Math.abs(2*dl-1), sm=dl*dl*(3-2*dl);
+  const col=mix3(mix3(mix3(NIGHT,DAY,sm),DUSK,warm*.55),GREY,wet*.4);
+  ctx.globalCompositeOperation="multiply"; ctx.fillStyle="rgb("+col.map(Math.round).join(",")+")"; ctx.fillRect(0,0,VW,VH);
+  ctx.globalCompositeOperation="lighter";
+  if(dl<.4){ const a=clamp((.4-dl)*2.5,0,1); for(const f of flies){ f.x+=Math.cos(f.p+t*.4)*.00012*f.v; f.y+=Math.sin(f.p*1.3+t*.35)*.00012*f.v; const px=sx(f.x,.6),py=sy(f.y,.6), tw=.5+.5*Math.sin(t*3+f.p*9);
+      const g=ctx.createRadialGradient(px,py,0,px,py,14); g.addColorStop(0,"rgba(255,240,150,"+(.9*a*tw)+")"); g.addColorStop(1,"rgba(255,240,150,0)"); ctx.fillStyle=g; ctx.fillRect(px-14,py-14,28,28); } }
+  ctx.globalCompositeOperation="source-over";
+  drawWeather(kind,dt,t);
+  const vg=ctx.createRadialGradient(VW/2,VH/2,Math.min(VW,VH)*.45,VW/2,VH/2,Math.max(VW,VH)*.8); vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(0,0,0,.33)"); ctx.fillStyle=vg; ctx.fillRect(0,0,VW,VH);
+  for(let i=pops.length-1;i>=0;i--){ const p=pops[i]; p.life-=dt; if(p.life<=0){pops.splice(i,1);continue} p.vy+=(p.g===undefined?420:p.g)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.r+=p.vr*dt;
+    ctx.save(); ctx.globalAlpha=clamp(p.life,0,1); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.drawImage(spr(p.e),-p.s/2,-p.s/2,p.s,p.s); ctx.restore(); }
+  ctx.globalAlpha=1;
+  if(cfg.mini&&frameNo%6===0) drawMini();
+  if(frameNo%20===0) updatePill();
+}
+
+// ---------------------------------------------------------------- interaction
+const toWorld=(px,py)=>({x:cam.x+(px-VW/2)/cfg.z,y:cam.y+(py-VH/2)/cfg.z});
+function burst(x,y,list,n){ for(let i=0;i<n;i++){ const a=Math.random()*6.28,s=120+Math.random()*320; pops.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-260,e:list[Math.random()*list.length|0],s:26+Math.random()*30,life:1.4+Math.random(),r:0,vr:(Math.random()-.5)*8}); } }
+function tapAt(px,py){
+  const w=toWorld(px,py), h=hAt(w.x,w.y);
+  if(cfg.tool==="stamp"){ if(h===null||h<1.7){toast("Stamps need dry land 🌱");return}
+    if(stamps.length>=2500) stamps.shift(); stamps.push({x:w.x,y:w.y,e:cfg.stamp,s:60,ph:Math.random()*6.28,born:performance.now()/1000}); burst(px,py,["✨"],5); updatePill(); return; }
+  for(const ch of chunks.values()){ if(!ch.objs) continue; for(const o of ch.objs) if(o.rare&&!found.has(o.id)&&Math.hypot(o.x-w.x,o.y-w.y-o.s*.4)<Math.max(54,o.s*.7)){
+      found.add(o.id); burst(px,py,["✨","⭐","🎉","💛",o.e],36); toast("✨ Discovered "+o.e+" #"+found.size+"!"); updatePill(); return; } }
+  for(const e of ents){ if(e.k==="fly") continue; if(Math.hypot(e.x-w.x,e.y-w.y+20)<42){ e.hop=1; for(let i=0;i<4;i++) pops.push({x:px+(Math.random()-.5)*30,y:py-20,vx:(Math.random()-.5)*60,vy:-90-Math.random()*60,g:-10,e:"💖",s:22,life:1.2,r:0,vr:0}); return; } }
+  burst(px,py,TH.pop,26);
+}
+let dg={lx:0,ly:0,moved:0,t:0,x0:0,y0:0};
+cv.addEventListener("pointerdown",e=>{drag=true; dg={lx:e.clientX,ly:e.clientY,moved:0,t:performance.now()}; vel.x=vel.y=0; lastInput=performance.now()/1000; try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+cv.addEventListener("pointermove",e=>{ if(!drag) return; const dx=e.clientX-dg.lx, dy=e.clientY-dg.ly, dtm=Math.max(1,performance.now()-dg.t)/1000; dg.moved+=Math.abs(dx)+Math.abs(dy);
+  if(cfg.tool==="stamp"&&dg.moved<8) return;
+  cam.x-=dx/cfg.z; cam.y-=dy/cfg.z; vel.x=vel.x*.6-(dx/cfg.z/dtm)*.4; vel.y=vel.y*.6-(dy/cfg.z/dtm)*.4; dg.lx=e.clientX; dg.ly=e.clientY; dg.t=performance.now(); });
+cv.addEventListener("pointerup",e=>{ drag=false; lastInput=performance.now()/1000;
+  if(dg.moved<8){ vel.x=vel.y=0; tapAt(e.clientX,e.clientY); }
+  else if(cfg.auto&&Math.hypot(vel.x,vel.y)>20){ heading=Math.atan2(vel.y,vel.x); } });
+cv.addEventListener("pointercancel",()=>{drag=false});
+cv.addEventListener("wheel",e=>{ e.preventDefault(); cfg.z=clamp(cfg.z*(e.deltaY<0?1.08:.92),.6,1.6); setSlider("z"); },{passive:false});
+
+// ---------------------------------------------------------------- panel
+const SL={
+ sea:{l:"Sea level",min:-1,max:1,step:.05,f:v=>v>.05?"more water":v<-.05?"more land":"balanced",ch:1},
+ sc:{l:"Land size",min:.5,max:2,step:.05,f:v=>v.toFixed(2)+"×",ch:1},
+ ro:{l:"Roughness",min:0,max:1,step:.05,f:v=>Math.round(v*100)+"%",ch:1},
+ dn:{l:"Scenery",min:0,max:2,step:.1,f:v=>v.toFixed(1)+"×",on:()=>{for(const c of chunks.values()) if(c.wc) makeObjs(c)}},
+ wl:{l:"Wildlife",min:0,max:2,step:.1,f:v=>v.toFixed(1)+"×"},
+ cl:{l:"Clouds",min:0,max:3,step:.05,f:v=>Math.round(v*100)+"%"},
+ tm:{l:"Time of day",min:0,max:1,step:.01,f:v=>(v*24|0)+":"+String((v*24%1)*60|0).padStart(2,"0"),on:()=>{cfg.cyc=false;$("cyc").checked=false}},
+ wi:{l:"Weather amount",min:0,max:1,step:.05,f:v=>Math.round(v*100)+"%"},
+ sp:{l:"Travel speed",min:0,max:300,step:1,f:v=>String(v|0)},
+ z:{l:"Zoom",min:.6,max:1.6,step:.05,f:v=>v.toFixed(2)+"×"}
+};
+const sld=id=>{const d=SL[id];return '<label class="r">'+d.l+'<b id="'+id+'V"></b><input type="range" id="'+id+'" min="'+d.min+'" max="'+d.max+'" step="'+d.step+'"></label>'};
+function setSlider(id){ $(id).value=cfg[id]; $(id+"V").textContent=SL[id].f(cfg[id]); }
+function buildStamps(){ const set=new Set(); for(const k in TH.objs) TH.objs[k].forEach(e=>set.add(e)); TH.walk.forEach(e=>set.add(e));
+  const list=[...set].slice(0,16).concat(["🏠","🏰","⛲","🗼","🎡","🚀","🌈","🔥"]); if(list.indexOf(cfg.stamp)<0) cfg.stamp=list[0];
+  const box=$("stamps"); if(!box) return; box.innerHTML=list.map(e=>'<button data-e="'+e+'" class="'+(e===cfg.stamp?"on":"")+'">'+e+'</button>').join(""); }
+function setTool(t){ cfg.tool=t; $("toolMove").classList.toggle("on",t==="move"); $("toolStamp").classList.toggle("on",t==="stamp"); cv.style.cursor=t==="stamp"?"crosshair":""; toast(t==="stamp"?"🏗️ Stamp mode: tap land to build "+cfg.stamp:"🧭 Explore mode"); }
+function photo(on){ document.body.classList.toggle("photo",on); if(on) toast("📷 Photo mode — press Esc to exit"); }
+function copyText(t){ try{ navigator.clipboard.writeText(t).then(()=>toast("🔗 Link copied!"),()=>prompt("Copy this link:",t)); }catch(e){ prompt("Copy this link:",t); } }
+
+$("panel").innerHTML=
+ '<h2>Wandering Worlds</h2><p class="s">An endless cartoon planet grown by Wave Function Collapse.</p>'+
+ '<details open><summary>🌍 World</summary><label class="r">Map</label><select id="theme">'+TKEYS.map(k=>'<option value="'+k+'">'+THEMES[k].name+'</option>').join("")+'</select>'+
+ '<div class="row"><input type="text" id="seed" aria-label="World seed"><button id="dice" title="Random world">🎲</button></div>'+
+ '<div class="row"><button class="pri" id="newW">New world</button><button id="share">🔗 Share</button></div></details>'+
+ '<details><summary>⛰️ Terrain</summary>'+sld("sea")+sld("sc")+sld("ro")+'<p class="s">Terrain sliders regrow the map with the same seed.</p></details>'+
+ '<details><summary>🌳 Life &amp; sky</summary>'+sld("dn")+sld("wl")+sld("cl")+sld("tm")+'<div class="c"><input type="checkbox" id="cyc"><span>Day / night cycle</span></div>'+
+ '<label class="r">Weather</label><select id="wx"><option value="auto">Auto (matches the map)</option><option value="clear">Clear</option><option value="rain">Rain</option><option value="storm">Thunderstorm</option><option value="snow">Snow</option><option value="petals">Petals</option><option value="dust">Dust</option></select>'+sld("wi")+'</details>'+
+ '<details><summary>🎥 Camera</summary>'+sld("sp")+sld("z")+'<div class="c"><input type="checkbox" id="auto"><span>Auto-wander</span></div><div class="c"><input type="checkbox" id="mn"><span>Minimap</span></div></details>'+
+ '<details><summary>🏗️ Build</summary><div class="row"><button id="toolMove" class="on">🧭 Explore</button><button id="toolStamp">🏗️ Stamp</button></div><div id="stamps"></div>'+
+ '<div class="row"><button id="undo">↶ Undo</button><button id="clearS">Clear all</button></div></details>'+
+ '<div class="row" style="margin-top:10px"><button id="photoB">📷 Photo mode</button><button id="save">💾 Save PNG</button><button id="helpB">❓</button></div>';
+
+for(const id in SL){ const d=SL[id], el=$(id); el.addEventListener("input",()=>{cfg[id]=+el.value; $(id+"V").textContent=d.f(cfg[id]); if(d.on) d.on();});
+  if(d.ch) el.addEventListener("change",()=>{rebuild(); toast("⛰️ Regrowing terrain…")}); }
+$("theme").onchange=e=>setTheme(e.target.value);
+$("seed").onchange=e=>{ const v=e.target.value.trim()||randSeed(); newWorld(v); };
+$("dice").onclick=()=>newWorld(); $("newW").onclick=()=>newWorld();
+$("share").onclick=()=>{ syncHash(); copyText(location.href); };
+$("cyc").onchange=e=>cfg.cyc=e.target.checked; $("auto").onchange=e=>cfg.auto=e.target.checked; $("mn").onchange=e=>{cfg.mini=e.target.checked; mini.style.display=cfg.mini?"":"none"};
+$("wx").onchange=e=>{cfg.wx=e.target.value; wparts=[]};
+$("toolMove").onclick=()=>setTool("move"); $("toolStamp").onclick=()=>setTool("stamp");
+$("stamps").onclick=e=>{ const b=e.target.closest("button"); if(!b) return; cfg.stamp=b.dataset.e; for(const x of $("stamps").children) x.classList.toggle("on",x===b); setTool("stamp"); };
+$("undo").onclick=()=>{stamps.pop();updatePill()}; $("clearS").onclick=()=>{stamps=[];updatePill()};
+$("photoB").onclick=()=>photo(true); $("exitPhoto").onclick=()=>photo(false);
+$("save").onclick=()=>cv.toBlob(b=>{const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="wandering-world.png"; a.click()});
+$("helpB").onclick=()=>$("help").hidden=false; $("helpClose").onclick=()=>$("help").hidden=true;
+$("tog").onclick=()=>{const h=!$("panel").hidden; $("panel").hidden=h; $("tog").setAttribute("aria-expanded",String(!h))};
+addEventListener("keydown",e=>{ if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)&&e.target.type!=="range"&&e.target.type!=="checkbox") return; const k=e.key.length===1?e.key.toLowerCase():e.key;
+  if(k in {ArrowUp:1,ArrowDown:1,ArrowLeft:1,ArrowRight:1,w:1,a:1,s:1,d:1}){ if(k==="s"&&!e.ctrlKey&&!e.metaKey){ if(e.repeat)return; setTool(cfg.tool==="stamp"?"move":"stamp"); return; } keys[k]=true; if(k.startsWith("Arrow")) e.preventDefault(); return; }
+  if(k==="n") newWorld(); else if(k==="p") photo(!document.body.classList.contains("photo")); else if(k==="h") $("tog").click(); else if(k==="m"){cfg.mini=!cfg.mini; $("mn").checked=cfg.mini; mini.style.display=cfg.mini?"":"none"}
+  else if(k==="z"){stamps.pop();updatePill()} else if(k==="?"){$("help").hidden=!$("help").hidden} else if(k==="Escape"){photo(false);$("help").hidden=true}
+  else if(k>="1"&&k<="6"){ setTheme(TKEYS[+k-1]); toast("🗺️ "+TH.name); } });
+addEventListener("keyup",e=>{ const k=e.key.length===1?e.key.toLowerCase():e.key; keys[k]=false; });
+addEventListener("blur",()=>{for(const k in keys) keys[k]=false});
+addEventListener("resize",resize);
+
+// ---------------------------------------------------------------- start
+$("theme").value=cfg.theme; $("seed").value=cfg.seedStr; $("cyc").checked=cfg.cyc; $("auto").checked=cfg.auto; $("mn").checked=cfg.mini; $("wx").value=cfg.wx;
+for(const id in SL) setSlider(id);
+if(innerWidth<700) $("tog").click();
+resize(); initSky(); setTheme(cfg.theme); rebuild(); updatePill();
+setTimeout(()=>{$("hud").style.opacity=0},9000);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
