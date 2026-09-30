@@ -39,6 +39,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
   <label>Travel speed: <b id="spV"></b><input id="sp" type="range" min="0" max="300" value="70"></label>
   <label>Zoom: <b id="zV"></b><input id="zm" type="range" min="0.5" max="1.6" step="0.05" value="1"></label>
   <label>Scenery: <b id="dnV"></b><input id="dn" type="range" min="0" max="2" step="0.1" value="1"></label>
+  <label>Clouds: <b id="clV"></b><input id="cl" type="range" min="0" max="3" step="0.05" value="0.3"></label>
   <label>Time of day: <b id="tmV"></b><input id="tm" type="range" min="0" max="1" step="0.01" value="0.5"></label>
   <div class="chk"><input type="checkbox" id="cyc" checked><span>Day / night cycle</span></div>
   <div class="chk"><input type="checkbox" id="auto" checked><span>Auto-wander</span></div>
@@ -60,7 +61,7 @@ const THEMES={
   objs:{2:["💎","🪨","🔮"],3:["👽","🍄","🛸","🌵"],4:["🌵","🪸","🍄","🧿"],5:["🌋","🗿","🪐"]},
   fly:["🛸","☄️","🦇"],sea:["👾","🐙","🦑","🐋"],walk:["👽","🦎","🐌","🦂"],pop:["✨","💫","🪐","⭐","🌟"]}};
 const hex=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16));
-let TH,seed,cfg={theme:"isles",sp:70,z:1,dn:1,tm:.5,cyc:true,auto:true};
+let TH,seed,cfg={theme:"isles",sp:70,z:1,dn:1,cl:.3,tm:.5,cyc:true,auto:true};
 const chunks=new Map(), GV=new Map();
 const key=(a,b)=>a+","+b, clamp=(v,a,b)=>v<a?a:v>b?b:v;
 function hash(a,b,c){let h=(a*374761393+b*668265263+c*2147483647)|0;h=Math.imul(h^h>>>13,1274126177);return(h^h>>>16)>>>0}
@@ -146,7 +147,7 @@ let W,H_,dpr,cam,vel,heading,last=0,drag=false,pat1,pat2,ents=[],pops=[],clouds=
 function setTheme(name){ cfg.theme=name; TH=THEMES[name]; TH.rgb=TH.pal.map(hex); TH.lrgb=hex(TH.line); document.body.style.background=TH.pal[0];
   for(const ch of chunks.values()){ch.cv=null;ch.objs=null} ents=[]; pat1=waterPat(200,3,.42); pat2=waterPat(320,9,.28); }
 function newWorld(){ seed=(Math.random()*1e9|0); chunks.clear(); GV.clear(); ents=[]; cam={x:0,y:0}; vel={x:0,y:0}; heading=Math.random()*6.28;
-  clouds=Array.from({length:14},()=>({x:Math.random(),y:Math.random(),s:.8+Math.random()*1.2,v:8+Math.random()*14}));
+  clouds=Array.from({length:12},()=>({x:Math.random(),y:Math.random(),s:.8+Math.random()*1.2,v:8+Math.random()*14}));
   flies=Array.from({length:70},()=>({x:Math.random(),y:Math.random(),p:Math.random()*6.28,v:.3+Math.random()*.7})); }
 function resize(){ dpr=Math.min(devicePixelRatio||1,2); W=innerWidth; H_=innerHeight; cv.width=W*dpr; cv.height=H_*dpr; }
 
@@ -202,13 +203,14 @@ function frame(ts){
     else { ctx.rotate(Math.sin(t*1.3+o.ph)*.045); ctx.drawImage(spr(o.e),-s*.6,-s*1.08,s*1.2,s*1.2); }
     ctx.restore(); }
   ctx.globalAlpha=1; ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cl=clouds.slice(0,Math.round(4*cfg.cl));
   const wrapX=W+700, wrapY=H_+700, sx=(x,par)=>((x*wrapX-cam.x*par*z)%wrapX+wrapX)%wrapX-350, sy=(y,par)=>((y*wrapY-cam.y*par*z)%wrapY+wrapY)%wrapY-350;
-  for(const c of clouds){ c.x=(c.x+c.v*dt/wrapX)%1; ctx.fillStyle="rgba(0,20,60,.13)"; ctx.beginPath(); ctx.ellipse(sx(c.x,1)+60,sy(c.y,1)+90,170*c.s,62*c.s,0,0,7); ctx.fill(); }
+  for(const c of cl){ c.x=(c.x+c.v*dt/wrapX)%1; ctx.fillStyle="rgba(0,20,60,.13)"; ctx.beginPath(); ctx.ellipse(sx(c.x,1)+60,sy(c.y,1)+90,170*c.s,62*c.s,0,0,7); ctx.fill(); }
   for(const e of ents) if(e.k==="fly"){ const px=W/2+(e.x-cam.x)*z, py=H_/2+(e.y-cam.y)*z; if(px<-80||px>W+80||py<-80||py>H_+80) continue; const s=e.s*z, al=clamp(e.age,0,1);
     ctx.globalAlpha=.18*al; ctx.fillStyle="#000"; ctx.beginPath(); ctx.ellipse(px+30,py+70,s*.3,s*.1,0,0,7); ctx.fill();
     ctx.globalAlpha=al; ctx.save(); ctx.translate(px,py-40*z+Math.sin(t*5+e.ph)*3); if(e.vx>0) ctx.scale(-1,1); ctx.drawImage(spr(e.e),-s*.6,-s*.6,s*1.2,s*1.2); ctx.restore(); }
-  ctx.globalAlpha=.9;
-  for(const c of clouds){ const w=300*c.s*z; ctx.drawImage(spr("☁️"),sx(c.x,1.35)-w/2,sy(c.y,1.35)-w/2,w,w); }
+  ctx.globalAlpha=.75;
+  for(const c of cl){ const w=300*c.s*z; ctx.drawImage(spr("☁️"),sx(c.x,1.35)-w/2,sy(c.y,1.35)-w/2,w,w); }
   ctx.globalAlpha=1;
   const dl=.5+.5*Math.sin(6.2832*(cfg.tm-.25)), warm=1-Math.abs(2*dl-1), sm=dl*dl*(3-2*dl);
   const col=mix(mix(NIGHT,DAY,sm),DUSK,warm*.55); ctx.globalCompositeOperation="multiply"; ctx.fillStyle=`rgb(${col.map(Math.round)})`; ctx.fillRect(0,0,W,H_);
@@ -237,16 +239,4 @@ $("theme").onchange=e=>setTheme(e.target.value);
 $("sp").oninput=e=>{cfg.sp=+e.target.value; $("spV").textContent=cfg.sp};
 $("zm").oninput=e=>{cfg.z=+e.target.value; $("zV").textContent=cfg.z.toFixed(2)+"×"};
 $("dn").oninput=e=>{cfg.dn=+e.target.value; $("dnV").textContent=cfg.dn.toFixed(1)+"×"; for(const ch of chunks.values()) if(ch.cv) makeObjs(ch)};
-$("tm").oninput=e=>{cfg.tm=+e.target.value; cfg.cyc=false; $("cyc").checked=false; $("tmV").textContent=(cfg.tm*24|0)+":00"};
-$("cyc").onchange=e=>cfg.cyc=e.target.checked; $("auto").onchange=e=>cfg.auto=e.target.checked;
-$("new").onclick=()=>newWorld();
-$("save").onclick=()=>cv.toBlob(b=>{const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="wandering-world.png"; a.click()});
-$("tog").onclick=()=>{const h=!$("panel").hidden; $("panel").hidden=h; $("tog").setAttribute("aria-expanded",!h)};
-addEventListener("keydown",e=>{ if(e.key==="h"||e.key==="H") $("tog").click(); if(e.key==="n"||e.key==="N") newWorld(); });
-addEventListener("resize",resize);
-$("spV").textContent=cfg.sp; $("zV").textContent="1.00×"; $("dnV").textContent="1.0×"; $("tmV").textContent="12:00";
-if(innerWidth<700) $("tog").click();
-resize(); newWorld(); setTheme("isles"); setTimeout(()=>$("hud").style.opacity=0,7000); requestAnimationFrame(frame);
-</script>
-</body>
-</html>
+$("cl").oninput=e=>{cfg.cl=+e.target.value; $("clV").textContent=Math.round(cfg.cl*100)+"
